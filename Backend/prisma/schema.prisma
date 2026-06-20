@@ -1,14 +1,170 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  firstName     String   @map("first_name")
+  lastName      String   @map("last_name")
+  role          Role     @default(STUDENT)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  feesAsStudent          Fee[]           @relation("StudentFees")
+  feesCreated            Fee[]           @relation("AdminCreatedFees")
+  allocations             Allocation[]
+  notificationsReceived  Notification[]  @relation("NotificationRecipient")
+  notificationsSent      Notification[]  @relation("NotificationSender")
+}
+
+model Room {
+  id                  String    @id @default(uuid())
+  roomNumber          Int       @map("room_number")
+  roomType            RoomType  @default(SINGLE)
+  capacity            Int
+  floorNumber         Int       @map("floor_number")
+  buildingBlock       String    @map("building_block")
+  monthlyRent         Decimal   @db.Decimal(10, 2) @map("monthly_rent")
+  status              Status    @default(Available)
+  hasWifi             Boolean   @default(true) @map("has_wifi")
+  hasAttachedBathroom Boolean   @default(false) @map("has_attached_bathroom")
+  hasFan              Boolean   @default(true) @map("has_fan")
+  bedCount            Int       @default(1) @map("bed_count")
+  furnitureDetails    String?   @default("None") @map("furniture_details")
+  roomSize            String?   @map("room_size")
+  imageUrl            String?   @map("image_url")
+  cleaningStatus      Boolean   @default(true) @map("cleaning_status")
+  lastMaintainDate    DateTime? @map("last_maintain_date")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  fees        Fee[]
+  allocations Allocation[]
+}
+
+model Fee {
+  id            Int            @id @default(autoincrement())
+  student       User           @relation("StudentFees", fields: [studentId], references: [id], onDelete: Cascade)
+  studentId     String
+  room          Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId        String
+  feeType       String         @map("fee_type")
+  amount        Decimal        @db.Decimal(10, 2)
+  dueDate       DateTime?      @map("due_date")
+  paymentDate   DateTime?      @map("payment_date")
+  paymentMethod PaymentMethod? @map("payment_method")
+  paymentStatus PaymentStatus  @default(Pending) @map("payment_status")
+  billingMonth  DateTime?      @map("billing_month")
+  lateFee       Decimal?       @db.Decimal(10, 2) @map("late_fee")
+  discount      Decimal?       @db.Decimal(10, 2)
+  totalAmount   Decimal        @db.Decimal(10, 2) @map("total_amount")
+  remarks       String?
+  createdBy     User           @relation("AdminCreatedFees", fields: [createdById], references: [id])
+  createdById   String         @map("created_by_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+}
+
+model Allocation {
+  id         Int              @id @default(autoincrement())
+  student    User             @relation(fields: [studentId], references: [id])
+  studentId  String
+  room       Room             @relation(fields: [roomId], references: [id])
+  roomId     String
+  startDate  DateTime         @map("start_date")
+  endDate    DateTime?        @map("end_date")
+  status     AllocationStatus @default(Active)
+  endReason  String?          @map("end_reason")
+  createdAt  DateTime         @default(now()) @map("created_at")
+}
+
+model Notification {
+  id                Int                  @id @default(autoincrement())
+  recipient         User                 @relation("NotificationRecipient", fields: [userId], references: [id])
+  userId            String
+  sender            User?                @relation("NotificationSender", fields: [senderId], references: [id])
+  senderId          String?
+  title             String
+  message           String
+  notificationType  String               @map("notification_type")
+  priority          NotificationPriority
+  status            NotificationStatus   @default(Unread)
+  sentVia           String?              @map("sent_via")
+  relatedEntityType RelatedEntityType?
+  relatedEntityId   String?              @map("related_entity_id")
+  isBroadcast       Boolean              @default(false)
+  createdAt         DateTime             @default(now()) @map("created_at")
+  sentAt            DateTime?            @map("sent_at")
+  readAt            DateTime?            @map("read_at")
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+  WARDEN
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+  TRIPLE
+  DORMITORY
+}
+
+enum Status {
+  Available
+  Occupied
+  Reserved
+  Under_Maintenance
+  Unavailable
+}
+
+enum AllocationStatus {
+  Active
+  Pending
+  Completed
+  Cancelled
+}
+
+enum PaymentStatus {
+  Pending
+  Paid
+  Overdue
+  Cancelled
+}
+
+enum PaymentMethod {
+  Cash
+  Bank_Transfer
+  eSewa
+  Khalti
+  Card
+}
+
+enum NotificationStatus {
+  Unread
+  Read
+  Archived
+}
+
+enum NotificationPriority {
+  Low
+  Medium
+  High
+  Urgent
+}
+
+enum RelatedEntityType {
+  fee
+  allocation
+  room
+  system
 }
